@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALEXTRIX HealthConnect - Tiempo real</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="header-content">
+        <div class="logo">
+          <i class="fas fa-heartbeat"></i>
+          <h1>ALEXTRIX HealthConnect</h1>
+        </div>
+        <div class="connection-status" id="connectionStatus">
+          <i class="fas fa-circle"></i>
+          <span>Conectando...</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <div class="dashboard-grid">
+        <div class="metric-card heart-rate">
+          <div class="metric-icon">
+            <i class="fas fa-heartbeat"></i>
+          </div>
+          <div class="metric-content">
+            <div class="metric-label">Frecuencia Cardíaca</div>
+            <div class="metric-value" id="heartRate">--</div>
+            <div class="metric-unit">bpm</div>
+          </div>
+          <div class="metric-status" id="heartRateStatus">
+            <i class="fas fa-check-circle"></i>
+          </div>
+        </div>
+
+        <div class="metric-card oxygen">
+          <div class="metric-icon">
+            <i class="fas fa-lungs"></i>
+          </div>
+          <div class="metric-content">
+            <div class="metric-label">Saturación de Oxígeno</div>
+            <div class="metric-value" id="spo2">--</div>
+            <div class="metric-unit">%</div>
+          </div>
+          <div class="metric-status" id="spo2Status">
+            <i class="fas fa-check-circle"></i>
+          </div>
+        </div>
+
+        <div class="metric-card temperature">
+          <div class="metric-icon">
+            <i class="fas fa-thermometer-half"></i>
+          </div>
+          <div class="metric-content">
+            <div class="metric-label">Temperatura</div>
+            <div class="metric-value" id="temperature">--</div>
+            <div class="metric-unit">°C</div>
+          </div>
+          <div class="metric-status" id="temperatureStatus">
+            <i class="fas fa-check-circle"></i>
+          </div>
+        </div>
+
+        <div class="metric-card location">
+          <div class="metric-icon">
+            <i class="fas fa-map-marker-alt"></i>
+          </div>
+          <div class="metric-content">
+            <div class="metric-label">Ubicación</div>
+            <div class="metric-coords" id="location">
+              <div class="coord">Lat: <span id="latitude">--</span></div>
+              <div class="coord">Lon: <span id="longitude">--</span></div>
+            </div>
+          </div>
+          <div class="metric-status" id="locationStatus">
+            <i class="fas fa-check-circle"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-panels">
+        <div class="panel patient-info">
+          <h3><i class="fas fa-user"></i> Información del Paciente</h3>
+          <div class="patient-details">
+            <div class="detail-item">
+              <span class="label">ID Usuario:</span>
+              <span class="value" id="userId">--</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Última actualización:</span>
+              <span class="value" id="lastUpdate">--</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel alerts-panel">
+          <h3><i class="fas fa-exclamation-triangle"></i> Alertas</h3>
+          <div class="alerts-container" id="alertsContainer">
+            <div class="no-alerts">
+              <i class="fas fa-check-circle"></i>
+              <span>Sin alertas</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <link rel="stylesheet" href="styles.css">
+  <script src="config.js"></script>
+  <script>
+    class HealthMonitor {
+      constructor() {
+        this.socket = null;
+        this.wsUrl = window.APP_CONFIG?.WS_URL || 'ws://127.0.0.1:8000/ws/datos';
+        this.connect();
+        this.initEventListeners();
+      }
+
+      connect() {
+        try {
+          this.socket = new WebSocket(this.wsUrl);
+          
+          this.socket.onopen = () => {
+            this.updateConnectionStatus(true);
+          };
+
+          this.socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            this.updateMetrics(data);
+            this.checkAlerts(data);
+          };
+
+          this.socket.onclose = () => {
+            this.updateConnectionStatus(false);
+            // Intentar reconectar después de 3 segundos
+            setTimeout(() => this.connect(), 3000);
+          };
+
+          this.socket.onerror = () => {
+            this.updateConnectionStatus(false);
+          };
+        } catch (error) {
+          console.error('Error connecting to WebSocket:', error);
+          this.updateConnectionStatus(false);
+        }
+      }
+
+      updateConnectionStatus(connected) {
+        const statusElement = document.getElementById('connectionStatus');
+        const icon = statusElement.querySelector('i');
+        const text = statusElement.querySelector('span');
+        
+        if (connected) {
+          statusElement.className = 'connection-status connected';
+          icon.className = 'fas fa-circle';
+          text.textContent = 'Conectado';
+        } else {
+          statusElement.className = 'connection-status disconnected';
+          icon.className = 'fas fa-circle';
+          text.textContent = 'Desconectado';
+        }
+      }
+
+      updateMetrics(data) {
+        // Actualizar frecuencia cardíaca
+        const heartRateEl = document.getElementById('heartRate');
+        if (heartRateEl) {
+          heartRateEl.textContent = data.frecuenciaCardiaca || '--';
+          this.updateMetricStatus('heartRateStatus', this.getHeartRateStatus(data.frecuenciaCardiaca));
+        }
+
+        // Actualizar SpO2
+        const spo2El = document.getElementById('spo2');
+        if (spo2El) {
+          spo2El.textContent = data.spo2 || '--';
+          this.updateMetricStatus('spo2Status', this.getSpo2Status(data.spo2));
+        }
+
+        // Actualizar temperatura
+        const tempEl = document.getElementById('temperature');
+        if (tempEl) {
+          tempEl.textContent = data.skinTemp || '--';
+          this.updateMetricStatus('temperatureStatus', this.getTemperatureStatus(data.skinTemp));
+        }
+
+        // Actualizar ubicación
+        const latEl = document.getElementById('latitude');
+        const lonEl = document.getElementById('longitude');
+        if (latEl && lonEl && data.gps) {
+          latEl.textContent = data.gps.lat || '--';
+          lonEl.textContent = data.gps.lon || '--';
+          this.updateMetricStatus('locationStatus', data.gps.lat && data.gps.lon ? 'good' : 'warning');
+        }
+
+        // Actualizar información del paciente
+        const userIdEl = document.getElementById('userId');
+        const lastUpdateEl = document.getElementById('lastUpdate');
+        if (userIdEl) userIdEl.textContent = data.idUsuario || '--';
+        if (lastUpdateEl) {
+          const date = new Date(data.timestamp);
+          lastUpdateEl.textContent = date.toLocaleString();
+        }
+      }
+
+      updateMetricStatus(elementId, status) {
+        const statusEl = document.getElementById(elementId);
+        if (!statusEl) return;
+
+        const icon = statusEl.querySelector('i');
+        statusEl.className = `metric-status ${status}`;
+        
+        switch (status) {
+          case 'good':
+            icon.className = 'fas fa-check-circle';
+            break;
+          case 'warning':
+            icon.className = 'fas fa-exclamation-triangle';
+            break;
+          case 'danger':
+            icon.className = 'fas fa-times-circle';
+            break;
+          default:
+            icon.className = 'fas fa-question-circle';
+        }
+      }
+
+      getHeartRateStatus(heartRate) {
+        if (!heartRate) return 'warning';
+        if (heartRate < 60 || heartRate > 100) return 'danger';
+        return 'good';
+      }
+
+      getSpo2Status(spo2) {
+        if (!spo2) return 'warning';
+        if (spo2 < 95) return 'danger';
+        if (spo2 < 97) return 'warning';
+        return 'good';
+      }
+
+      getTemperatureStatus(temperature) {
+        if (!temperature) return 'warning';
+        if (temperature < 36 || temperature > 37.5) return 'danger';
+        return 'good';
+      }
+
+      checkAlerts(data) {
+        const alertsContainer = document.getElementById('alertsContainer');
+        const alerts = [];
+
+        // Verificar alertas de frecuencia cardíaca
+        if (data.frecuenciaCardiaca && (data.frecuenciaCardiaca < 60 || data.frecuenciaCardiaca > 100)) {
+          alerts.push({
+            type: 'danger',
+            message: `Frecuencia cardíaca anormal: ${data.frecuenciaCardiaca} bpm`
+          });
+        }
+
+        // Verificar alertas de SpO2
+        if (data.spo2 && data.spo2 < 95) {
+          alerts.push({
+            type: 'danger',
+            message: `Saturación de oxígeno baja: ${data.spo2}%`
+          });
+        }
+
+        // Verificar alertas de temperatura
+        if (data.skinTemp && (data.skinTemp < 36 || data.skinTemp > 37.5)) {
+          alerts.push({
+            type: 'warning',
+            message: `Temperatura corporal anormal: ${data.skinTemp}°C`
+          });
+        }
+
+        this.displayAlerts(alerts, alertsContainer);
+      }
+
+      displayAlerts(alerts, container) {
+        if (alerts.length === 0) {
+          container.innerHTML = `
+            <div class="no-alerts">
+              <i class="fas fa-check-circle"></i>
+              <span>Sin alertas</span>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = alerts.map(alert => `
+          <div class="alert alert-${alert.type}">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>${alert.message}</span>
+          </div>
+        `).join('');
+      }
+
+      initEventListeners() {
+        // Agregar event listeners si es necesario
+      }
+    }
+
+    // Inicializar el monitor cuando el DOM esté listo
+    document.addEventListener('DOMContentLoaded', () => {
+      new HealthMonitor();
+    });
+  </script>
+</body>
+</html>
