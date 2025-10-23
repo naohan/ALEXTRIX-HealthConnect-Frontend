@@ -194,32 +194,60 @@ class HealthConnectDashboard {
         }
     }
 
+    /**
+     * ACTUALIZACIÓN DE TEMPERATURA CORPORAL
+     * =====================================
+     * Procesa y visualiza los datos de temperatura corporal en tiempo real
+     * 
+     * @param {number} temp - Temperatura en grados Celsius desde el sensor
+     * 
+     * FUNCIONALIDADES:
+     * - Actualiza el valor numérico en la interfaz
+     * - Evalúa el estado de salud basado en rangos médicos
+     * - Cambia colores de la tarjeta según el nivel de alerta
+     * - Genera alertas automáticas para valores críticos
+     * - Actualiza el gráfico temporal en tiempo real
+     * 
+     * RANGOS DE TEMPERATURA:
+     * - Normal: 36.1°C - 37.2°C (zona verde)
+     * - Fiebre: 37.2°C - 38.5°C (zona amarilla)
+     * - Crítico: >38.5°C (zona roja - golpe de calor)
+     * - Hipotermia: <36°C (zona amarilla)
+     */
     updateTemperature(temp) {
+        // Obtener elementos del DOM para actualización
         const valueElement = document.getElementById('temperatureValue');
         const statusElement = document.getElementById('temperatureStatus');
         const cardElement = document.getElementById('temperatureCard');
 
+        // Actualizar valor numérico de temperatura
         if (valueElement) {
             valueElement.textContent = temp || '--';
         }
 
+        // Inicializar estado como normal
         let status = 'Normal';
         let statusClass = 'normal';
 
+        // Evaluar temperatura y determinar estado de salud
         if (temp) {
             if (temp > 38) {
+                // CRÍTICO: Posible golpe de calor (>38°C)
                 status = 'Golpe de Calor';
                 statusClass = 'critical';
                 this.showAlert('🔥 Posible golpe de calor: ' + temp + '°C', 'danger');
             } else if (temp > 37.5) {
+                // ALERTA: Fiebre moderada (37.5°C - 38°C)
                 status = 'Fiebre';
                 statusClass = 'warning';
             } else if (temp < 36) {
+                // ALERTA: Hipotermia (<36°C)
                 status = 'Hipotermia';
                 statusClass = 'warning';
             }
         }
 
+        // Aplicar estado visual a los elementos
         if (statusElement) {
             statusElement.textContent = status;
             statusElement.className = `metric-status ${statusClass}`;
@@ -229,7 +257,7 @@ class HealthConnectDashboard {
             cardElement.className = `metric-card temperature ${statusClass}`;
         }
 
-        // Actualizar gráfico
+        // Actualizar gráfico temporal con nuevo punto de datos
         if (window.temperatureChart) {
             this.updateChart(window.temperatureChart, temp);
         }

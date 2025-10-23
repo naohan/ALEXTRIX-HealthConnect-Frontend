@@ -215,3 +215,4 @@ Este es el formato que el backend devuelve en:
 
 **© 2025 ALEXTRIX HealthConnect - TECSUP Arequipa**
 
+

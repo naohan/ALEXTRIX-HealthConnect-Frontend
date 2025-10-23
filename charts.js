@@ -268,6 +268,24 @@ class HealthCharts {
         });
     }
 
+    /**
+     * CREACIÓN DEL GRÁFICO DE TEMPERATURA CORPORAL
+     * ============================================
+     * Configura un gráfico de línea temporal para visualizar la temperatura corporal
+     * con zonas de alerta médica y rangos de salud estándar.
+     * 
+     * CARACTERÍSTICAS DEL GRÁFICO:
+     * - Tipo: Línea temporal con relleno degradado
+     * - Rango Y: 34°C - 40°C (cubre hipotermia a hipertermia)
+     * - Color: Naranja (#ff9800) para identificación visual
+     * - Animación: Suave y responsiva
+     * - Zonas de alerta: Normal, Fiebre, Crítico
+     * 
+     * ZONAS DE ALERTA MÉDICA:
+     * - Verde (36.1-37.2°C): Temperatura normal
+     * - Amarillo (37.2-38.5°C): Fiebre moderada
+     * - Rojo (>38.5°C): Estado crítico
+     */
     createTemperatureChart() {
         const ctx = document.getElementById('temperatureChart');
         if (!ctx) return;
@@ -293,8 +311,8 @@ class HealthCharts {
                     ...this.getChartOptions('Temperatura', this.chartColors.temperature, '°C').scales,
                     y: {
                         ...this.getChartOptions('Temperatura', this.chartColors.temperature, '°C').scales.y,
-                        min: 34,
-                        max: 40,
+                        min: 34,  // Rango mínimo para detectar hipotermia
+                        max: 40,  // Rango máximo para detectar hipertermia
                         ticks: {
                             ...this.getChartOptions('Temperatura', this.chartColors.temperature, '°C').scales.y.ticks,
                             callback: function(value) {
@@ -307,6 +325,7 @@ class HealthCharts {
                     ...this.getChartOptions('Temperatura', this.chartColors.temperature, '°C').plugins,
                     annotation: {
                         annotations: {
+                            // ZONA NORMAL: Temperatura corporal saludable
                             normalZone: {
                                 type: 'box',
                                 yMin: 36.1,
@@ -320,6 +339,7 @@ class HealthCharts {
                                     color: '#4caf50'
                                 }
                             },
+                            // ZONA DE FIEBRE: Temperatura elevada que requiere atención
                             feverZone: {
                                 type: 'box',
                                 yMin: 37.2,
@@ -333,6 +353,7 @@ class HealthCharts {
                                     color: '#ff9800'
                                 }
                             },
+                            // ZONA CRÍTICA: Temperatura peligrosa que requiere intervención inmediata
                             criticalZone: {
                                 type: 'box',
                                 yMin: 38.5,
