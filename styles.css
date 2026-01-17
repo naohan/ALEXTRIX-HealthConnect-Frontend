@@ -126,6 +126,12 @@ body {
     transition: all 0.3s ease;
 }
 
+.connection-status.connecting {
+    background: rgba(250, 204, 21, 0.1);
+    color: var(--warning-color);
+    border: 1px solid rgba(250, 204, 21, 0.2);
+}
+
 .connection-status.connected {
     background: rgba(22, 163, 74, 0.1);
     color: var(--success-color);
@@ -142,6 +148,11 @@ body {
     width: 8px;
     height: 8px;
     border-radius: 50%;
+}
+
+.status-indicator.connecting {
+    color: var(--warning-color);
+    animation: pulse 1.5s infinite;
 }
 
 .status-indicator.connected {

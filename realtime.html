@@ -96,10 +96,13 @@
 
       connect() {
         try {
+          // Mostrar estado de conexión
+          this.updateConnectionStatus('connecting');
+          
           this.socket = new WebSocket(this.wsUrl);
           
           this.socket.onopen = () => {
-            this.updateConnectionStatus(true);
+            this.updateConnectionStatus('connected');
           };
 
           this.socket.onmessage = (event) => {
@@ -115,33 +118,67 @@
           };
 
           this.socket.onclose = () => {
-            this.updateConnectionStatus(false);
+            this.updateConnectionStatus('disconnected');
             // Intentar reconectar después de 3 segundos
-            setTimeout(() => this.connect(), 3000);
+            setTimeout(() => {
+              this.updateConnectionStatus('connecting');
+              this.connect();
+            }, 3000);
           };
 
           this.socket.onerror = () => {
-            this.updateConnectionStatus(false);
+            this.updateConnectionStatus('disconnected');
           };
         } catch (error) {
           console.error('Error connecting to WebSocket:', error);
-          this.updateConnectionStatus(false);
+          this.updateConnectionStatus('disconnected');
         }
       }
 
-      updateConnectionStatus(connected) {
+      updateConnectionStatus(status) {
+        // status puede ser: 'connecting', 'connected', 'disconnected'
         const statusElement = document.getElementById('connectionStatus');
+        if (!statusElement) return;
+        
         const icon = statusElement.querySelector('i');
         const text = statusElement.querySelector('span');
         
-        if (connected) {
-          statusElement.className = 'connection-status connected';
-          icon.className = 'fas fa-circle';
-          text.textContent = 'Conectado';
-        } else {
-          statusElement.className = 'connection-status disconnected';
-          icon.className = 'fas fa-circle';
-          text.textContent = 'Desconectado';
+        switch (status) {
+          case 'connecting':
+            statusElement.className = 'connection-status connecting';
+            icon.className = 'fas fa-circle';
+            text.textContent = 'Conectando...';
+            // Mostrar "..." en las métricas si no hay datos
+            this.showConnectingState();
+            break;
+          case 'connected':
+            statusElement.className = 'connection-status connected';
+            icon.className = 'fas fa-circle';
+            text.textContent = 'Conectado';
+            break;
+          case 'disconnected':
+          default:
+            statusElement.className = 'connection-status disconnected';
+            icon.className = 'fas fa-circle';
+            text.textContent = 'Desconectado';
+            break;
+        }
+      }
+      
+      showConnectingState() {
+        // Mostrar "..." en las métricas cuando está conectando
+        const heartRate = document.getElementById('heartRate');
+        const latitude = document.getElementById('latitude');
+        const longitude = document.getElementById('longitude');
+        
+        if (heartRate && heartRate.textContent === '--') {
+          heartRate.textContent = '...';
+        }
+        if (latitude && latitude.textContent === '--') {
+          latitude.textContent = '...';
+        }
+        if (longitude && longitude.textContent === '--') {
+          longitude.textContent = '...';
         }
       }
 
@@ -292,7 +329,9 @@
 
     // Inicializar el monitor cuando el DOM esté listo
     document.addEventListener('DOMContentLoaded', () => {
-      new HealthMonitor();
+      const monitor = new HealthMonitor();
+      // Mostrar estado inicial de conexión
+      monitor.updateConnectionStatus('connecting');
     });
   </script>
 </body>

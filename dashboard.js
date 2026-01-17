@@ -20,6 +20,9 @@ class HealthConnectDashboard {
     }
 
     init() {
+        // Mostrar estado inicial de conexión
+        this.updateConnectionStatus('connecting');
+        
         this.setupWebSocket();
         this.initMap();
         this.loadHistoricalData();
@@ -34,11 +37,14 @@ class HealthConnectDashboard {
 
     setupWebSocket() {
         try {
+            // Mostrar estado de conexión
+            this.updateConnectionStatus('connecting');
+            
             this.socket = new WebSocket(this.wsUrl);
             
             this.socket.onopen = () => {
                 console.log('WebSocket conectado');
-                this.updateConnectionStatus(true);
+                this.updateConnectionStatus('connected');
                 this.reconnectAttempts = 0;
             };
 
@@ -57,17 +63,17 @@ class HealthConnectDashboard {
 
             this.socket.onclose = () => {
                 console.log('WebSocket desconectado');
-                this.updateConnectionStatus(false);
+                this.updateConnectionStatus('disconnected');
                 this.reconnect();
             };
 
             this.socket.onerror = (error) => {
                 console.error('WebSocket error:', error);
-                this.updateConnectionStatus(false);
+                this.updateConnectionStatus('disconnected');
             };
         } catch (error) {
             console.error('Error setting up WebSocket:', error);
-            this.updateConnectionStatus(false);
+            this.updateConnectionStatus('disconnected');
         }
     }
 
@@ -76,28 +82,68 @@ class HealthConnectDashboard {
             this.reconnectAttempts++;
             console.log(`Intentando reconectar... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
             
+            // Mostrar estado de reconexión
+            this.updateConnectionStatus('connecting');
+            const statusText = document.getElementById('connectionText');
+            if (statusText) {
+                statusText.textContent = `Reconectando... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`;
+            }
+            
             setTimeout(() => {
                 this.setupWebSocket();
             }, 3000);
         } else {
             console.error('Máximo número de intentos de reconexión alcanzado');
+            this.updateConnectionStatus('disconnected');
         }
     }
 
-    updateConnectionStatus(connected) {
-        this.isConnected = connected;
+    updateConnectionStatus(status) {
+        // status puede ser: 'connecting', 'connected', 'disconnected'
+        this.isConnected = status === 'connected';
         const statusElement = document.getElementById('connectionStatus');
         const statusText = document.getElementById('connectionText');
+        
+        if (!statusElement || !statusText) return;
+        
         const indicator = statusElement.querySelector('.status-indicator');
 
-        if (connected) {
-            statusElement.className = 'connection-status connected';
-            statusText.textContent = 'Conectado';
-            indicator.className = 'fas fa-circle status-indicator connected';
-        } else {
-            statusElement.className = 'connection-status disconnected';
-            statusText.textContent = 'Desconectado';
-            indicator.className = 'fas fa-circle status-indicator disconnected';
+        switch (status) {
+            case 'connecting':
+                statusElement.className = 'connection-status connecting';
+                statusText.textContent = 'Conectando...';
+                indicator.className = 'fas fa-circle status-indicator connecting';
+                // Mostrar "Conectando..." en las métricas
+                this.showConnectingState();
+                break;
+            case 'connected':
+                statusElement.className = 'connection-status connected';
+                statusText.textContent = 'Conectado';
+                indicator.className = 'fas fa-circle status-indicator connected';
+                break;
+            case 'disconnected':
+            default:
+                statusElement.className = 'connection-status disconnected';
+                statusText.textContent = 'Desconectado';
+                indicator.className = 'fas fa-circle status-indicator disconnected';
+                break;
+        }
+    }
+    
+    showConnectingState() {
+        // Mostrar estado de "Conectando..." en las métricas si no hay datos
+        const heartRateValue = document.getElementById('heartRateValue');
+        const latitudeValue = document.getElementById('latitudeValue');
+        const longitudeValue = document.getElementById('longitudeValue');
+        
+        if (heartRateValue && heartRateValue.textContent === '--') {
+            heartRateValue.textContent = '...';
+        }
+        if (latitudeValue && latitudeValue.textContent === '--') {
+            latitudeValue.textContent = '...';
+        }
+        if (longitudeValue && longitudeValue.textContent === '--') {
+            longitudeValue.textContent = '...';
         }
     }
 

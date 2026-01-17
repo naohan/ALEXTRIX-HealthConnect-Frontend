@@ -15,8 +15,8 @@ const CONFIG = {
     
     production: {
         // Backend desplegado en Render
-        API_BASE_URL: 'https://alextrix-healthconnect.onrender.com/api',
-        WS_URL: 'wss://alextrix-healthconnect.onrender.com/ws/datos'
+        API_BASE_URL: 'https://alextrix-healthconnect-v475.onrender.com/api',
+        WS_URL: 'wss://alextrix-healthconnect-v475.onrender.com/ws/datos'
     },
     
     // Método para obtener la configuración actual
