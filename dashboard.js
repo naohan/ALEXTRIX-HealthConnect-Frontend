@@ -45,10 +45,13 @@ class HealthConnectDashboard {
             this.socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    this.updateMetrics(data);
-                    this.updateMap(data.gps);
+                    // Normalizar datos antes de procesar
+                    const normalizedData = this.normalizeData(data);
+                    this.updateMetrics(normalizedData);
+                    this.updateMap(normalizedData.gps);
                 } catch (error) {
                     console.error('Error parsing WebSocket data:', error);
+                    console.error('Raw data received:', event.data);
                 }
             };
 
@@ -98,21 +101,45 @@ class HealthConnectDashboard {
         }
     }
 
+    /**
+     * Normaliza los datos del backend para asegurar compatibilidad
+     * Maneja diferentes formatos de respuesta (objeto directo, wrapper, etc.)
+     */
+    normalizeData(data) {
+        // Si data ya tiene la estructura esperada, retornarlo
+        if (data.frecuenciaCardiaca !== undefined || data.spo2 !== undefined) {
+            // Normalizar GPS: puede venir como objeto {lat, lon} o como propiedades separadas
+            if (!data.gps && (data.lat || data.longitude || data.lon)) {
+                data.gps = {
+                    lat: data.lat || data.latitude,
+                    lon: data.lon || data.longitude
+                };
+            }
+            return data;
+        }
+        
+        // Si viene envuelto en otra estructura
+        if (data.data) {
+            return this.normalizeData(data.data);
+        }
+        
+        return data;
+    }
+
     updateMetrics(data) {
+        // Normalizar datos primero
+        const normalizedData = this.normalizeData(data);
+        
         // Actualizar frecuencia cardíaca
-        this.updateHeartRate(data.frecuenciaCardiaca);
+        this.updateHeartRate(normalizedData.frecuenciaCardiaca);
         
-        // Actualizar SpO2
-        this.updateSpo2(data.spo2);
-        
-        // Actualizar temperatura
-        this.updateTemperature(data.skinTemp);
+        // SpO2 y temperatura eliminados de la interfaz
         
         // Actualizar ubicación
-        this.updateLocation(data.gps);
+        this.updateLocation(normalizedData.gps);
         
         // Actualizar mapa con GPS
-        this.updateMap(data.gps);
+        this.updateMap(normalizedData.gps);
     }
 
     updateHeartRate(bpm) {
@@ -268,20 +295,37 @@ class HealthConnectDashboard {
         const lonElement = document.getElementById('longitudeValue');
         const statusElement = document.getElementById('locationStatus');
 
-        if (latElement && lonElement && gps) {
-            latElement.textContent = gps.lat ? gps.lat.toFixed(6) : '--';
-            lonElement.textContent = gps.lon ? gps.lon.toFixed(6) : '--';
+        if (latElement && lonElement) {
+            // Manejar GPS como objeto o propiedades individuales
+            let lat = null;
+            let lon = null;
+            
+            if (gps) {
+                if (typeof gps === 'object') {
+                    lat = gps.lat || gps.latitude;
+                    lon = gps.lon || gps.longitude || gps.lng;
+                }
+            }
+            
+            latElement.textContent = lat ? lat.toFixed(6) : '--';
+            lonElement.textContent = lon ? lon.toFixed(6) : '--';
 
             if (statusElement) {
-                statusElement.textContent = gps.lat && gps.lon ? 'Ubicado' : 'Desconocida';
-                statusElement.className = `metric-status ${gps.lat && gps.lon ? 'normal' : 'warning'}`;
+                statusElement.textContent = lat && lon ? 'Ubicado' : 'Desconocida';
+                statusElement.className = `metric-status ${lat && lon ? 'normal' : 'warning'}`;
             }
         }
     }
 
     updateMap(gps) {
-        if (this.map && gps && gps.lat && gps.lon) {
-            const latLng = [gps.lat, gps.lon];
+        if (!this.map || !gps) return;
+        
+        // Normalizar GPS: puede venir como objeto {lat, lon} o {latitude, longitude}
+        const lat = gps.lat || gps.latitude;
+        const lon = gps.lon || gps.longitude || gps.lng;
+        
+        if (lat && lon) {
+            const latLng = [lat, lon];
             
             if (this.marker) {
                 // Actualizar posición del marcador existente
@@ -308,8 +352,8 @@ class HealthConnectDashboard {
             this.marker.bindPopup(`
                 <div style="font-family: 'Poppins', sans-serif; padding: 8px;">
                     <strong style="color: #dc2626; font-size: 14px;">📍 Ubicación Actual</strong><br><br>
-                    <strong>Latitud:</strong> ${gps.lat.toFixed(6)}<br>
-                    <strong>Longitud:</strong> ${gps.lon.toFixed(6)}<br>
+                <strong>Latitud:</strong> ${lat.toFixed(6)}<br>
+                <strong>Longitud:</strong> ${lon.toFixed(6)}<br>
                     <strong>Actualizado:</strong> ${new Date().toLocaleTimeString()}
                 </div>
             `);
@@ -405,24 +449,40 @@ class HealthConnectDashboard {
     async fetchLastRecord() {
         try {
             const response = await fetch(`${this.apiBaseUrl}/sensores/ultimo`);
-            if (response.ok) {
-                const data = await response.json();
-                this.updateMetrics(data);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+            const data = await response.json();
+            
+            // Normalizar datos si vienen en formato diferente
+            const normalizedData = this.normalizeData(data);
+            this.updateMetrics(normalizedData);
         } catch (error) {
             console.error('Error fetching last record:', error);
+            // Mostrar mensaje al usuario si es necesario
+            if (error.message.includes('Failed to fetch')) {
+                console.warn('No se pudo conectar al backend. Verifica que esté ejecutándose.');
+            }
         }
     }
 
     async loadHistoricalData() {
         try {
             const response = await fetch(`${this.apiBaseUrl}/sensores`);
-            if (response.ok) {
-                const data = await response.json();
-                this.updateHistoricalTable(data);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+            const data = await response.json();
+            
+            // Asegurar que data sea un array
+            const records = Array.isArray(data) ? data : (data.records || data.data || []);
+            this.updateHistoricalTable(records);
         } catch (error) {
             console.error('Error loading historical data:', error);
+            const tbody = document.getElementById('historicalData');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="7" class="no-data">Error al cargar datos</td></tr>';
+            }
         }
     }
 
@@ -434,21 +494,36 @@ class HealthConnectDashboard {
         const lastRecords = data.slice(-10).reverse();
         
         if (lastRecords.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="no-data">No hay datos disponibles</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="no-data">No hay datos disponibles</td></tr>';
             return;
         }
 
-        tbody.innerHTML = lastRecords.map(record => `
+        tbody.innerHTML = lastRecords.map(record => {
+            // Normalizar GPS para la tabla
+            let lat = '--';
+            let lon = '--';
+            if (record.gps) {
+                lat = (record.gps.lat || record.gps.latitude || '--');
+                lon = (record.gps.lon || record.gps.longitude || record.gps.lng || '--');
+                if (typeof lat === 'number') lat = lat.toFixed(4);
+                if (typeof lon === 'number') lon = lon.toFixed(4);
+            } else if (record.lat || record.latitude) {
+                lat = (record.lat || record.latitude || '--');
+                lon = (record.lon || record.longitude || record.lng || '--');
+                if (typeof lat === 'number') lat = lat.toFixed(4);
+                if (typeof lon === 'number') lon = lon.toFixed(4);
+            }
+            
+            return `
             <tr>
-                <td>${record.idUsuario || '--'}</td>
-                <td>${record.frecuenciaCardiaca || '--'}</td>
-                <td>${record.spo2 || '--'}</td>
-                <td>${record.skinTemp || '--'}</td>
-                <td>${record.gps ? record.gps.lat.toFixed(4) : '--'}</td>
-                <td>${record.gps ? record.gps.lon.toFixed(4) : '--'}</td>
+                <td>${record.idUsuario || record.id_usuario || '--'}</td>
+                <td>${record.frecuenciaCardiaca || record.frecuencia_cardiaca || '--'}</td>
+                <td>${lat}</td>
+                <td>${lon}</td>
                 <td>${record.timestamp ? new Date(record.timestamp).toLocaleString() : '--'}</td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
     }
 
     setupEventListeners() {

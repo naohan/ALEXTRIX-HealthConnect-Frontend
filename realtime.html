@@ -38,34 +38,6 @@
           </div>
         </div>
 
-        <div class="metric-card oxygen">
-          <div class="metric-icon">
-            <i class="fas fa-lungs"></i>
-          </div>
-          <div class="metric-content">
-            <div class="metric-label">Saturación de Oxígeno</div>
-            <div class="metric-value" id="spo2">--</div>
-            <div class="metric-unit">%</div>
-          </div>
-          <div class="metric-status" id="spo2Status">
-            <i class="fas fa-check-circle"></i>
-          </div>
-        </div>
-
-        <div class="metric-card temperature">
-          <div class="metric-icon">
-            <i class="fas fa-thermometer-half"></i>
-          </div>
-          <div class="metric-content">
-            <div class="metric-label">Temperatura</div>
-            <div class="metric-value" id="temperature">--</div>
-            <div class="metric-unit">°C</div>
-          </div>
-          <div class="metric-status" id="temperatureStatus">
-            <i class="fas fa-check-circle"></i>
-          </div>
-        </div>
-
         <div class="metric-card location">
           <div class="metric-icon">
             <i class="fas fa-map-marker-alt"></i>
@@ -131,9 +103,15 @@
           };
 
           this.socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            this.updateMetrics(data);
-            this.checkAlerts(data);
+            try {
+              const data = JSON.parse(event.data);
+              const normalizedData = this.normalizeData(data);
+              this.updateMetrics(normalizedData);
+              this.checkAlerts(normalizedData);
+            } catch (error) {
+              console.error('Error parsing WebSocket data:', error);
+              console.error('Raw data:', event.data);
+            }
           };
 
           this.socket.onclose = () => {
@@ -167,44 +145,62 @@
         }
       }
 
+      normalizeData(data) {
+        // Normalizar datos para compatibilidad con diferentes formatos del backend
+        if (!data.frecuenciaCardiaca && !data.frecuencia_cardiaca) {
+          if (data.data) return this.normalizeData(data.data);
+        }
+        
+        // Normalizar GPS
+        if (!data.gps && (data.lat || data.latitude || data.lon || data.longitude)) {
+          data.gps = {
+            lat: data.lat || data.latitude,
+            lon: data.lon || data.longitude || data.lng
+          };
+        }
+        
+        return data;
+      }
+
       updateMetrics(data) {
+        // Normalizar datos primero
+        const normalizedData = this.normalizeData(data);
+        
         // Actualizar frecuencia cardíaca
         const heartRateEl = document.getElementById('heartRate');
         if (heartRateEl) {
-          heartRateEl.textContent = data.frecuenciaCardiaca || '--';
-          this.updateMetricStatus('heartRateStatus', this.getHeartRateStatus(data.frecuenciaCardiaca));
+          const bpm = normalizedData.frecuenciaCardiaca || normalizedData.frecuencia_cardiaca;
+          heartRateEl.textContent = bpm || '--';
+          this.updateMetricStatus('heartRateStatus', this.getHeartRateStatus(bpm));
         }
 
-        // Actualizar SpO2
-        const spo2El = document.getElementById('spo2');
-        if (spo2El) {
-          spo2El.textContent = data.spo2 || '--';
-          this.updateMetricStatus('spo2Status', this.getSpo2Status(data.spo2));
-        }
-
-        // Actualizar temperatura
-        const tempEl = document.getElementById('temperature');
-        if (tempEl) {
-          tempEl.textContent = data.skinTemp || '--';
-          this.updateMetricStatus('temperatureStatus', this.getTemperatureStatus(data.skinTemp));
-        }
+        // SpO2 y temperatura eliminados de la interfaz
 
         // Actualizar ubicación
         const latEl = document.getElementById('latitude');
         const lonEl = document.getElementById('longitude');
-        if (latEl && lonEl && data.gps) {
-          latEl.textContent = data.gps.lat || '--';
-          lonEl.textContent = data.gps.lon || '--';
-          this.updateMetricStatus('locationStatus', data.gps.lat && data.gps.lon ? 'good' : 'warning');
+        if (latEl && lonEl) {
+          const gps = normalizedData.gps || {};
+          const lat = gps.lat || gps.latitude;
+          const lon = gps.lon || gps.longitude || gps.lng;
+          latEl.textContent = lat || '--';
+          lonEl.textContent = lon || '--';
+          this.updateMetricStatus('locationStatus', lat && lon ? 'good' : 'warning');
         }
 
         // Actualizar información del paciente
         const userIdEl = document.getElementById('userId');
         const lastUpdateEl = document.getElementById('lastUpdate');
-        if (userIdEl) userIdEl.textContent = data.idUsuario || '--';
-        if (lastUpdateEl) {
-          const date = new Date(data.timestamp);
-          lastUpdateEl.textContent = date.toLocaleString();
+        if (userIdEl) {
+          userIdEl.textContent = normalizedData.idUsuario || normalizedData.id_usuario || '--';
+        }
+        if (lastUpdateEl && normalizedData.timestamp) {
+          try {
+            const date = new Date(normalizedData.timestamp);
+            lastUpdateEl.textContent = date.toLocaleString();
+          } catch (e) {
+            lastUpdateEl.textContent = normalizedData.timestamp || '--';
+          }
         }
       }
 
@@ -253,29 +249,19 @@
         const alertsContainer = document.getElementById('alertsContainer');
         const alerts = [];
 
+        // Normalizar datos para alertas
+        const normalizedData = this.normalizeData(data);
+        const bpm = normalizedData.frecuenciaCardiaca || normalizedData.frecuencia_cardiaca;
+
         // Verificar alertas de frecuencia cardíaca
-        if (data.frecuenciaCardiaca && (data.frecuenciaCardiaca < 60 || data.frecuenciaCardiaca > 100)) {
+        if (bpm && (bpm < 60 || bpm > 100)) {
           alerts.push({
             type: 'danger',
-            message: `Frecuencia cardíaca anormal: ${data.frecuenciaCardiaca} bpm`
+            message: `Frecuencia cardíaca anormal: ${bpm} bpm`
           });
         }
 
-        // Verificar alertas de SpO2
-        if (data.spo2 && data.spo2 < 95) {
-          alerts.push({
-            type: 'danger',
-            message: `Saturación de oxígeno baja: ${data.spo2}%`
-          });
-        }
-
-        // Verificar alertas de temperatura
-        if (data.skinTemp && (data.skinTemp < 36 || data.skinTemp > 37.5)) {
-          alerts.push({
-            type: 'warning',
-            message: `Temperatura corporal anormal: ${data.skinTemp}°C`
-          });
-        }
+        // Alertas de SpO2 y temperatura eliminadas
 
         this.displayAlerts(alerts, alertsContainer);
       }

@@ -66,39 +66,6 @@
                 </div>
             </div>
 
-            <div class="metric-card spo2" id="spo2Card">
-                <div class="metric-icon">
-                    <i class="fas fa-lungs"></i>
-                </div>
-                <div class="metric-content">
-                    <h3>Saturación de Oxígeno</h3>
-                    <div class="metric-value" id="spo2Value">--</div>
-                    <div class="metric-unit">%</div>
-                    <div class="metric-status" id="spo2Status">Normal</div>
-                </div>
-            </div>
-
-            <!-- 
-                TARJETA DE TEMPERATURA CORPORAL
-                =================================
-                Esta tarjeta muestra la temperatura corporal en tiempo real con:
-                - Icono de termómetro para identificación visual
-                - Valor numérico de temperatura en grados Celsius
-                - Estado de salud basado en rangos médicos estándar
-                - Colores dinámicos según el nivel de alerta
-            -->
-            <div class="metric-card temperature" id="temperatureCard">
-                <div class="metric-icon">
-                    <i class="fas fa-thermometer-half"></i>
-                </div>
-                <div class="metric-content">
-                    <h3>Temperatura Corporal</h3>
-                    <div class="metric-value" id="temperatureValue">--</div>
-                    <div class="metric-unit">°C</div>
-                    <div class="metric-status" id="temperatureStatus">Normal</div>
-                </div>
-            </div>
-
             <div class="metric-card location" id="locationCard">
                 <div class="metric-icon">
                     <i class="fas fa-map-marker-alt"></i>
@@ -120,23 +87,6 @@
                 <h3><i class="fas fa-chart-line"></i> Frecuencia Cardíaca</h3>
                 <canvas id="heartRateChart"></canvas>
             </div>
-            <div class="chart-container">
-                <h3><i class="fas fa-chart-line"></i> SpO₂</h3>
-                <canvas id="spo2Chart"></canvas>
-            </div>
-            <!-- 
-                GRÁFICO DE TEMPERATURA CORPORAL
-                =================================
-                Visualización temporal de la temperatura corporal con:
-                - Línea de tiempo que muestra evolución de la temperatura
-                - Rangos de colores para diferentes estados de salud
-                - Zonas de alerta visual (normal, fiebre, crítico)
-                - Actualización en tiempo real desde sensores IoT
-            -->
-            <div class="chart-container">
-                <h3><i class="fas fa-chart-line"></i> Temperatura</h3>
-                <canvas id="temperatureChart"></canvas>
-            </div>
         </section>
 
         <!-- Map and Historical Data -->
@@ -153,8 +103,6 @@
                             <tr>
                                 <th>Usuario</th>
                                 <th>BPM</th>
-                                <th>SpO₂</th>
-                                <th>Temp</th>
                                 <th>Lat</th>
                                 <th>Lon</th>
                                 <th>Fecha</th>
@@ -162,7 +110,7 @@
                         </thead>
                         <tbody id="historicalData">
                             <tr>
-                                <td colspan="7" class="loading">Cargando datos...</td>
+                                <td colspan="5" class="loading">Cargando datos...</td>
                             </tr>
                         </tbody>
                     </table>

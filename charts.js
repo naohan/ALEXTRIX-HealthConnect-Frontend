@@ -28,13 +28,14 @@ class HealthCharts {
 
     createCharts() {
         this.createHeartRateChart();
-        this.createSpo2Chart();
-        this.createTemperatureChart();
+        // Gráficos de SpO2 y temperatura eliminados de la interfaz
+        // this.createSpo2Chart();
+        // this.createTemperatureChart();
         
         // Guardar referencias globales para acceso desde dashboard.js
         window.heartRateChart = this.charts.heartRate;
-        window.spo2Chart = this.charts.spo2;
-        window.temperatureChart = this.charts.temperature;
+        // window.spo2Chart = this.charts.spo2;
+        // window.temperatureChart = this.charts.temperature;
     }
 
     getChartOptions(title, color, unit = '') {
